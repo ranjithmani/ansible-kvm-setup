@@ -31,7 +31,7 @@
        name: libvirtd
        state: started
        enabled: yes
-    when: ansible_os_family == 'RedHat'
+    when: ansible_distribution == 'RedHat'
 
   - block:
     - name: Install Qemu-KVM on Debian system
