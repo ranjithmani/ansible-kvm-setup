@@ -1,0 +1,9 @@
+---
+virt_user: rmani
+dom_name: centos
+down_url: "https://cloud.centos.org/centos/7/images/CentOS-7-x86_64-GenericCloud-20150628_01.qcow2"
+cloud_img_location: "/home/rmani/terra_kvm_01/images"
+cloud_img: "{{ cloud_img_location }}/{{ dom_name }}.qcow2"
+cloudinit_img: "{{ cloud_img_location }}/{{ dom_name }}.iso"
+disk_location: '/var/lib/libvirt/images'
+vm_name: "{{ dom_name }}"
