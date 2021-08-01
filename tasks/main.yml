@@ -1,0 +1,121 @@
+---
+  - block:
+    - name: "End the playbook if the host is a VM"
+      debug:
+        msg: "This playbook cannot proceed since it is a VM"
+
+    - meta: end_play
+
+    when: ansible_system_vendor == "QEMU" 
+
+  - block:
+    - name: Enable epel repository
+      yum:
+       name: epel-release
+       state: present
+
+    - name: Install Qemu-KVM on Redhat system
+      yum:
+       name: "{{ item }}"
+       state: latest
+       update_cache: yes
+      loop:
+        - qemu-kvm
+        - libvirt
+        - libvirt-python
+        - libguestfs-tools
+        - virt-install
+
+    - name: Start libvirtd
+      service:
+       name: libvirtd
+       state: started
+       enabled: yes
+    when: ansible_os_family == 'RedHat'
+
+  - block:
+    - name: Install Qemu-KVM on Debian system
+      apt:
+       name: "{{ item }}"
+       state: latest
+       update_cache: yes
+      loop:
+       - qemu-kvm
+       - libvirt-daemon-system
+       - libvirt-clients
+       - bridge-utils
+       - qemu-utils
+       - cloud-image-utils
+       - genisoimage
+       - virt-manager
+
+    - name: Add users to livirt  and kvm
+      command: usermod -G  "{{ item }}" "{{ virt_user }}"
+      loop:
+        - libvirt
+        - kvm
+
+    - name: Start libvirtd
+      service:
+       name: libvirtd
+       state: started
+       enabled: yes
+    when: ansible_distribution == "Linux Mint"
+
+  - name: check for the cloudimg present
+    command: "ls {{ cloud_img }}"
+    ignore_errors: true
+    register: clouddisk
+    tags: download
+
+  - name: Download the cloud image
+    get_url:
+     url: "{{ down_url }}"
+     dest: "{{ cloud_img_location }}/{{ dom_name }}.qcow2"
+     mode: 0644
+    changed_when: "clouddisk != 0"
+    tags: download
+
+  - name: check whether the cloudinit present
+    command: "ls {{ cloudinit_img }}"
+    ignore_errors: true
+    register: cloudinit
+    tags: download
+
+  - name: Create Cloud init config
+    command: "/usr/bin/cloud-localds {{ cloudinit_img }} {{ cloud_img_location }}/user-data.txt"
+    changed_when: "cloudinit.rc != 0"
+    tags: download
+
+  - name: copy cloud init image
+    copy:
+     src: "{{ cloudinit_img }}" 
+     dest: "{{ disk_location }}"
+     mode: 0644
+    tags: vmcreate
+
+  - name: convert the cloud image to disk
+    command: "/usr/bin/qemu-img convert -f qcow2 {{ cloud_img }} {{ disk_location }}/{{ dom_name }}.img"
+    tags: vmcreate
+
+  - name: get list of VMs
+    shell: virsh list | grep running | awk '{print $2}'
+    register: vms
+    tags: vmcreate
+
+  - name: Create a vm
+    command: >
+            virt-install --connect qemu:///system 
+            --virt-type kvm 
+            --name "{{ vm_name }}" 
+            --ram 1024 
+            --vcpus 1 
+            --os-type linux 
+            --os-variant centos7.0
+            --disk "{{ disk_location }}/{{ dom_name }}".img,format=qcow2 
+            --disk "{{ disk_location }}/{{ dom_name }}".iso,device=cdrom 
+            --import 
+            --network network=default 
+            --noautoconsole
+    when: '"{{ dom_name }}" not in vms.stdout'
+    tags: vmcreate
