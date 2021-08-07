@@ -1,9 +1,33 @@
 ---
-virt_user: rmani
+#Set your virt user name in this case it is the hypervisor username
+virt_user: <your hypervisor user> 
+
+#Name for your VM guest , this name will assign as hostname if not explicitly set (default: centos) 
 dom_name: centos
-down_url: "https://cloud.centos.org/centos/7/images/CentOS-7-x86_64-GenericCloud-20150628_01.qcow2"
-cloud_img_location: "/home/rmani/terra_kvm_01/images"
+
+#set the URL of the cloud image that you want to install
+down_url: "<cloud image URL>"
+
+# A temprrary location for building the cloud image and cloudint 
+cloud_img_location: "/tmp"
+
+# Cloud image name 
 cloud_img: "{{ cloud_img_location }}/{{ dom_name }}.qcow2"
+
+# Cloudinit image name
 cloudinit_img: "{{ cloud_img_location }}/{{ dom_name }}.iso"
+
+# Location for your guest (default: /var/lib/libvirt/images)
 disk_location: '/var/lib/libvirt/images'
+
+
 vm_name: "{{ dom_name }}"
+
+# Set username for your your server, you will be login to the server using this username
+username: "{{ username }}"
+
+# Set the password for the user
+password: randompassword
+
+#set the ssh key for the above user 
+ssh_key: 'your ssh key '
