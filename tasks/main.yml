@@ -31,7 +31,8 @@
        name: libvirtd
        state: started
        enabled: yes
-    when: ansible_distribution == 'RedHat'
+    when: ansible_os_family == 'RedHat'
+    tags: install
 
   - block:
     - name: Install Qemu-KVM on Debian system
@@ -50,10 +51,10 @@
        - virt-manager
 
     - name: Add users to livirt  and kvm
-      command: usermod -G  "{{ item }}" "{{ virt_user }}"
-      loop:
-        - libvirt
-        - kvm
+      user:
+       name: "{{ virt_user }}"
+       groups: "libvirt, kvm"
+       append: yes
 
     - name: Start libvirtd
       service:
@@ -61,6 +62,26 @@
        state: started
        enabled: yes
     when: ansible_distribution == "Linux Mint"
+    tags: install
+
+  - name: get list of VMs
+    shell: virsh list | grep running | awk '{print $2}'
+    register: vms
+
+  - block:
+     - name: Stopping if Domain with same name exisit
+       debug:
+         msg: "{{ dom_name }} VM is already Running.. stopping the play"
+
+     - meta: end_play
+    when: '"{{ dom_name }}"  in vms.stdout'
+
+
+  - name: Copy cloud config 
+    template:
+     src: user-data.txt.j2
+     dest: "{{ cloud_img_location }}/user-data.txt"
+     mode: 0644
 
   - name: check for the cloudimg present
     command: "ls {{ cloud_img }}"
@@ -98,10 +119,6 @@
     command: "/usr/bin/qemu-img convert -f qcow2 {{ cloud_img }} {{ disk_location }}/{{ dom_name }}.img"
     tags: vmcreate
 
-  - name: get list of VMs
-    shell: virsh list | grep running | awk '{print $2}'
-    register: vms
-    tags: vmcreate
 
   - name: Create a vm
     command: >
@@ -119,3 +136,22 @@
             --noautoconsole
     when: '"{{ dom_name }}" not in vms.stdout'
     tags: vmcreate
+  
+  - name: Clean up the files 
+    file: 
+     name: "{{ item }}"
+     state: absent
+    loop:
+     - "{{ cloudinit_img }}"
+     - "{{ cloud_img }}"
+    
+  - name: Wait for the vm to start up
+    command: sleep 30
+
+  - name: Get the IP Address of the VM
+    shell: virsh domifaddr "{{ dom_name }}"  |grep vnet | awk '{print $4}'|cut -f 1 -d /
+    register: ipv4
+
+  - name: show the IP
+    debug:
+     msg: "IPv4 Address assigned for {{ dom_name }} is {{ ipv4.stdout }}"
