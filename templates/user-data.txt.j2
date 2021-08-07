@@ -1,0 +1,12 @@
+#cloud-config
+users:
+ - name: {{ username }}
+   sudo: ALL=(ALL) NOPASSWD:ALL
+   groups: wheel
+   lock_passwd: false
+   ssh_authorized_keys:
+     - {{ ssh_key }}
+chpasswd:
+  list: |
+    {{ username }}:{{ password }}
+  expire: False
